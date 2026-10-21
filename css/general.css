@@ -1,0 +1,154 @@
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --forest: #a9c7b5;
+    --forest-dark: #202522;
+    --sage: #343a36;
+    --sage-light: #292e2b;
+    --cream: #171918;
+    --white: #222624;
+    --text: #e8e8e3;
+    --muted: #a4a7a1;
+    --border: #3a3e3b;
+    --teal: #91b5a0;
+    --gold: #d4b779;
+    --red: #d78378;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: var(--cream);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    line-height: 1.6;
+}
+
+.hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin: 24px 30px 0;
+    padding: 34px;
+    min-height: 250px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(20, 23, 22, 0.92) 0%,
+            rgba(28, 31, 29, 0.78) 50%,
+            rgba(28, 31, 29, 0.35) 100%
+        ),
+        url("../mmedia/img/new-rizal-library.jpg");
+
+    background-size: cover;
+    background-position: center 45%;
+    background-repeat: no-repeat;
+
+    color: #f0f0eb;
+    border: 1px solid #444944;
+    border-radius: 24px;
+}
+
+.hero-top {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+}
+
+.eyebrow {
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-top: 5px;
+}
+
+.hero h1 {
+    font-family: 'Manrope', sans-serif;
+    font-size: clamp(36px, 5vw, 48px);
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -2px;
+}
+
+.hero h1 span {
+    color: var(--gold);
+}
+
+.tagline {
+    margin-top: 18px;
+    color: #d2d4ce;
+    font-size: 16px;
+}
+
+.navigation {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin: 22px 30px;
+    padding-bottom: 3px;
+}
+
+.nav-link {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #242725;
+    color: #d2d3cd;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    transition: 0.2s ease;
+}
+
+.nav-link:hover {
+    background: #393e39;
+    border-color: var(--gold);
+}
+
+.nav-link.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #24231e;
+}
+
+button {
+    font-family: inherit;
+}
+
+@media (max-width: 650px) {
+    .hero {
+        margin: 12px 12px 0;
+        padding: 24px 20px;
+        min-height: 230px;
+        border-radius: 18px;
+    }
+
+    .hero-top {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .navigation {
+        margin: 15px 12px 28px;
+    }
+
+    .nav-link {
+        padding: 11px 15px;
+        font-size: 12px;
+    }
+}

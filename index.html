@@ -1,0 +1,125 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveRARY | Overview</title>
+
+    <link rel="stylesheet" href="css/general.css">
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+
+    <header class="hero">
+        <div class="hero-top">
+            <div>
+                <p class="eyebrow">NEW RIZAL LIBRARY</p>
+                <h1>Live<span>RARY</span></h1>
+                <p class="tagline">putangina ayoko na</p>
+            </div>
+        </div>
+
+         <nav class="navigation">
+        <a href="index.html" class="nav-link active">Overview</a>
+        <a href="html/studyzone.html" class="nav-link">Study zones</a>
+        <a href="html/patternsandtrends.html" class="nav-link">Patterns and Trends</a>
+    </nav>
+    </header>
+
+    <main class="overview-page">
+        <section class="page-heading">
+            <div class="overview-text">
+                <h2>Overview</h2>
+                <p class="muted">
+                    Find an available seat for your next study session.
+                </p>
+            </div>
+        </section>
+
+        <section class="dashboard">
+
+            <article class="panel study-panel" id="zones">
+                <div class="panel-heading">
+                    <div>
+                        <p class="section-label">EXPLORE THE LIBRARY</p>
+                        <h2>Study spaces</h2>
+                        <p class="muted">
+                            Choose a floor, then select a study area.
+                        </p>
+                    </div>
+                </div>
+
+                <p class="tabs-heading">SELECT FLOOR</p>
+                <div class="floor-tabs" id="floor-tabs"></div>
+
+                <div class="area-section">
+                    <div class="area-section-heading">
+                        <h3 id="selected-floor-title">Floor 1</h3>
+                        <span id="area-count">2 study areas</span>
+                    </div>
+
+                    <div class="area-tabs" id="area-tabs"></div>
+                    <div id="area-details"></div>
+                </div>
+            </article>
+
+            <div class="panel summary-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="section-label">AT A GLANCE</p>
+                        <h2>Library overview</h2>
+                        <p class="muted">
+                            Find out which study spaces are busiest or freest.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="summary-card overall-card">
+                    <div class="summary-card-top">
+                        <span class="summary-icon">◉</span>
+                        <span class="summary-label">OVERALL OCCUPANCY</span>
+                    </div>
+
+                    <p class="summary-number" id="overall-occupancy">0%</p>
+
+                    <div class="summary-progress">
+                        <div id="overall-progress"></div>
+                    </div>
+
+                    <p class="summary-description" id="seat-summary"></p>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-card-top">
+                        <span class="summary-icon busy-icon">↗</span>
+                        <span class="summary-label">BUSIEST AREA</span>
+                    </div>
+
+                    <p class="summary-number area-name" id="busiest-area">—</p>
+                    <p class="summary-description" id="busiest-floor"></p>
+                    <span class="area-badge busy-badge" id="busiest-rate"></span>
+                </div>
+
+                <div class="summary-card">
+                    <div class="summary-card-top">
+                        <span class="summary-icon free-icon">↘</span>
+                        <span class="summary-label">FREEST AREA</span>
+                    </div>
+
+                    <p class="summary-number area-name" id="freest-area">—</p>
+                    <p class="summary-description" id="freest-floor"></p>
+                    <span class="area-badge free-badge" id="freest-rate"></span>
+                </div>
+            </div>
+
+        </section>
+
+        <footer class="overview-footer">
+            <p>LiveRARY | New Rizal Library</p>
+            <p>BARDEMOLO - BATAN - URIBE</p>
+        </footer>
+    </main>
+    <script src="js/index.js"></script>
+</body>
+</html>
