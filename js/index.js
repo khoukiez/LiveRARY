@@ -2,33 +2,37 @@ const floors = [
     {
         name: "Floor 1",
         areas: [
-            { name: "Resu", occupied: 10, total: 30 },
-            { name: "Lobby", occupied: 23, total: 25 }
+            { name: "RESU", occupied: 30, total: 30 },
+            { name: "Reference and Information System", occupied: 2, total: 5 },
+            { name: "Graduate-Faculty Study Area Reserve Collection", occupied: 20, total: 20}
         ]
     },
     {
         name: "Floor 2",
         areas: [
-            { name: "Computer Laboratory", occupied: 24, total: 35 }
+            { name: "Office of the University Librarian", occupied: 2, total: 5 },
+            { name: "Multi-media Resource Center", occupied: 15, total: 20 }
         ]
     },
     {
         name: "Floor 3",
         areas: [
-            { name: "Individual Study Area", occupied: 20, total: 30 },
-            { name: "Computer Laboratory", occupied: 16, total: 25 }
+            { name: "Circulation Books", occupied: 30, total: 30 },
+            { name: "Information Commons", occupied: 2, total: 25 }
         ]
     },
     {
         name: "Floor 4",
         areas: [
-            { name: "Individual Study Area", occupied: 14, total: 30 }
+            { name: "Circulation Books", occupied: 30, total: 30 },
+            { name: "Information Commons", occupied: 2, total: 25 }
         ]
     },
     {
         name: "Floor 5",
         areas: [
-            { name: "Open Study Area", occupied: 10, total: 35 }
+            { name: "Study Hall", occupied: 60, total: 80 },
+            { name: "Technical Servces", occupied: 10, total: 20 }
         ]
     }
 ];
