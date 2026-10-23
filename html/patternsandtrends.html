@@ -3,37 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live:RARY</title>
+    <title>LiveRARY | Overview</title>
+
     <link rel="stylesheet" href="../css/general.css">
+    <link rel="stylesheet" href="../css/pattersandtrends.css">
 </head>
 <body>
+    <header class="hero">
+        <div class="hero-top">
+            <div>
+                <p class="eyebrow">NEW RIZAL LIBRARY</p>
+                <h1>Live<span>RARY</span></h1>
+                <p class="tagline">putangina ayoko na</p>
+            </div>
+        </div>
 
-    <div class="container">
-        <header class="hero">
-            <div class="brand">
+         <nav class="navigation">
+        <a href="../index.html" class="nav-link">Overview</a>
+        <a href="studyzone.html" class="nav-link">Study zones</a>
+        <a href="patternsandtrends.html" class="nav-link active">Patterns and Trends</a>
+    </nav>
+    </header>
+
+    <main class="trends-container">
+        <section class="page-heading">
+            <h1>Patterns <span>&</span> Trends</h1>
+            <p>
+                Explore how study-space occupancy changes across weekdays
+                and discover which areas tend to be busier.
+            </p>
+        </section>
+
+        <section class="controls panel">
+            <div class="control-group">
+                <label for="weekday-select">Compare weekdays</label>
+                <select id="weekday-select">
+                    <option value="All">All weekdays</option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="floor-select">Floor</label>
+                <select id="floor-select">
+                    <option value="All">All floors</option>
+                    <option value="1">Floor 1</option>
+                    <option value="2">Floor 2</option>
+                    <option value="3">Floor 3</option>
+                    <option value="4">Floor 4</option>
+                    <option value="5">Floor 5</option>
+                </select>
+            </div>
+
+            <button id="refresh-button" type="button">Refresh data</button>
+        </section>
+
+        <p id="data-status" class="data-status" role="status">
+            Loading occupancy data...
+        </p>
+
+        <section class="summary-grid">
+            <article class="summary-card panel">
+                <p>Average occupancy</p>
+                <h2 id="average-occupancy">—</h2>
+                <span>Across displayed areas</span>
+            </article>
+
+            <article class="summary-card panel">
+                <p>Busiest study area</p>
+                <h2 id="busiest-area">—</h2>
+                <span id="busiest-detail">Waiting for data</span>
+            </article>
+
+            <article class="summary-card panel">
+                <p>Least occupied area</p>
+                <h2 id="freest-area">—</h2>
+                <span id="freest-detail">Waiting for data</span>
+            </article>
+
+            <article class="summary-card panel">
+                <p>Areas recorded</p>
+                <h2 id="areas-count">—</h2>
+                <span>Unique study areas</span>
+            </article>
+        </section>
+
+        <section class="panel chart-panel">
+            <div class="section-heading">
                 <div>
-                    <p class="eyebrow">NEW RIZAL LIBRARY</p>
-                    <h1>Find a Seat</h1>
+                    <p class="eyebrow">OCCUPANCY COMPARISON</p>
+                    <h2>How busy are the study areas?</h2>
+                </div>
+                <span class="chart-unit">Percent (%)</span>
+            </div>
+
+            <p class="section-description">
+                Compare the occupancy percentage of each study area
+                for your selected weekday and floor.
+            </p>
+
+            <div id="occupancy-chart" class="bar-chart">
+                <p class="empty-state">Loading chart...</p>
+            </div>
+        </section>
+
+        <section class="panel chart-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">WEEKLY PATTERNS</p>
+                    <h2>Occupancy across weekdays</h2>
+                </div>
+                <span class="chart-unit">Percent (%)</span>
+            </div>
+
+            <p class="section-description">
+                Choose a study area to see how its recorded occupancy
+                differs from one weekday to another.
+            </p>
+
+            <div class="control-group area-picker">
+                <label for="area-select">Study area</label>
+                <select id="area-select">
+                    <option value="">Select a study area</option>
+                </select>
+            </div>
+
+            <div id="weekday-chart" class="weekday-chart">
+                <p class="empty-state">Loading weekday comparison...</p>
+            </div>
+
+            <p id="trend-note" class="trend-note"></p>
+        </section>
+
+        <section class="panel table-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">RAW OBSERVATIONS</p>
+                    <h2>Occupancy records</h2>
                 </div>
             </div>
 
-            <span class="project-label">
-                STUDENT PROJECT:
-                BARDEMOLO
-                BATAN
-                URIBE
-            </span>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Weekday</th>
+                            <th>Floor</th>
+                            <th>Study Area</th>
+                            <th>Occupied</th>
+                            <th>Available</th>
+                            <th>Occupancy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-table">
+                        <tr>
+                            <td colspan="6">Loading records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
-            <p class="subtitle">
-                Find the best spot for you!
-            </p>
-            
-        </header>
+        <p class="page-note">
+            Occupancy percentages are calculated from the data available
+            in the published Google Sheet. Comparisons reflect recorded
+            observations and do not necessarily represent every moment
+            of the day.
+        </p>
+    </main>
 
-        <nav class="navigation">
-            <a href="../index.html">Overview</a>
-            <a href="studyzone.html">Study zones</a>
-            <a href="patternsandtrends.html" class="active">Patterns and Trends</a>   
-        </nav>
-    </div>
+    <script src="../js/patternsandtrends.js"></script>
 </body>
+</html>
