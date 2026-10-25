@@ -48,7 +48,7 @@ body {
             rgba(28, 31, 29, 0.78) 50%,
             rgba(28, 31, 29, 0.35) 100%
         ),
-        url("../mmedia/img/new-rizal-library.jpg");
+        url("../mmedia/img/new-rizal-library.png");
 
     background-size: cover;
     background-position: center 45%;
@@ -118,6 +118,7 @@ body {
 .nav-link:hover {
     background: #393e39;
     border-color: var(--gold);
+    transform: scale(1.05);
 }
 
 .nav-link.active {

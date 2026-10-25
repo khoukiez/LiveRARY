@@ -5,7 +5,18 @@
     padding: 48px 0 70px;
 }
 
-/* Page heading */
+.data-timestamp {
+    display: inline-block;
+    margin-top: 50px;
+    padding: 8px 12px;
+    background: #292d2a;
+    border: 1px solid #414641;
+    border-radius: 8px;
+    color: #d4b779;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 .page-heading {
     display: block;
     width: 100%;
@@ -21,7 +32,7 @@
     font-weight: 800;
     letter-spacing: -1px;
     line-height: 1.1;
-    margin: 0 0 14px;
+    margin: 0 0 5px;
     text-align: left;
 }
 
@@ -142,6 +153,36 @@
     background: #d4b779;
     border-color: #d4b779;
     color: #24231e;
+}
+
+.closed-card {
+    border-color: #594444;
+}
+
+.closed-message {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 24px;
+    padding: 18px;
+    border: 1px solid #594444;
+    border-radius: 10px;
+    background: #302525;
+    color: #f0a5a5;
+    font-size: 18px;
+}
+
+.closed-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e57373;
+}
+
+.closed-description {
+    margin-top: 12px;
+    color: #aaa;
+    font-size: 13px;
 }
 
 /* Study area section */
