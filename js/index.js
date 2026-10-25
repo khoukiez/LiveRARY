@@ -1,450 +1,574 @@
-
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYvy84ib1bsk8ZCKOAffxbekyTYc3xsudJdW0gNz8LHyjzPK2Y-N88Xmo_c8ZN6LpIGwvdrgHG4s3z/pub?gid=1754684221&single=true&output=csv";
 
-const SELECTED_WEEKDAY = "Monday";
-const SELECTED_TIME = "10:00";
+const TIME_ZONE = "Asia/Manila";
+const REFRESH_INTERVAL = 60 * 1000;
 
-let floors = [];
-let selectedFloor = 0;
-let selectedArea = 0;
-
-const closingTimes = {
-    5: "17:00",
-    4: "18:00",
-    3: "19:00",
+const FLOOR_CLOSING_TIMES = {
+    1: "21:00",
     2: "20:00",
-    1: "21:00"
+    3: "19:00",
+    4: "18:00",
+    5: "17:00"
 };
 
-function timeToMinutes(time) {
-    const match = String(time).match(/^(\d{1,2}):(\d{2})$/);
+let floors = [];
+let selectedFloor = 1;
+let selectedArea = null;
+let lastUpdatedTime = null;
 
-    if (!match) return -1;
+function getPhilippineDateTime() {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: TIME_ZONE,
+        weekday: "long",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23"
+    }).formatToParts(new Date());
 
-    return Number(match[1]) * 60 + Number(match[2]);
+    const values = {};
+
+    parts.forEach(part => {
+        values[part.type] = part.value;
+    });
+
+    return {
+        weekday: values.weekday,
+        date: `${values.year}-${values.month}-${values.day}`,
+        minutes: Number(values.hour) * 60 + Number(values.minute),
+        time: `${values.hour}:${values.minute}`
+    };
 }
 
-function normalizeTime(time) {
-    const minutes = timeToMinutes(time);
+function timeToMinutes(time) {
+    if (!time) return null;
 
-    if (minutes < 0) return "";
+    const normalized = String(time).trim().toUpperCase();
 
+    const match = normalized.match(
+        /^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/
+    );
+
+    if (!match) return null;
+
+    let hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const period = match[3];
+
+    if (minutes > 59) return null;
+
+    if (period) {
+        if (hours < 1 || hours > 12) return null;
+
+        if (period === "AM" && hours === 12) hours = 0;
+        if (period === "PM" && hours !== 12) hours += 12;
+    } else if (hours > 23) {
+        return null;
+    }
+
+    return hours * 60 + minutes;
+}
+
+function formatTime(minutes) {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
 
     return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
-function formatTime(time) {
-    const minutes = timeToMinutes(time);
+function isFloorClosed(floorNumber, currentMinutes) {
+    const closingTime = timeToMinutes(
+        FLOOR_CLOSING_TIMES[floorNumber]
+    );
 
-    if (minutes < 0) return time;
-
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-
-    return `${hours % 12 || 12}:${String(mins).padStart(2, "0")} ${hours >= 12 ? "PM" : "AM"}`;
+    return closingTime !== null && currentMinutes >= closingTime;
 }
 
-function isFloorClosed(floorName, time = SELECTED_TIME) {
-    const floorNumber = Number(floorName.match(/\d+/)?.[0]);
-    const closingTime = closingTimes[floorNumber];
+function parseCSVLine(line) {
+    const result = [];
+    let value = "";
+    let insideQuotes = false;
 
-    return closingTime
-        ? timeToMinutes(time) >= timeToMinutes(closingTime)
-        : false;
-}
+    for (let i = 0; i < line.length; i++) {
+        const character = line[i];
 
-function parseCSV(text) {
-    const rows = [];
-    let row = [];
-    let cell = "";
-    let quoted = false;
-
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        const next = text[i + 1];
-
-        if (char === '"' && quoted && next === '"') {
-            cell += '"';
-            i++;
-        } else if (char === '"') {
-            quoted = !quoted;
-        } else if (char === "," && !quoted) {
-            row.push(cell.trim());
-            cell = "";
-        } else if ((char === "\n" || char === "\r") && !quoted) {
-            if (char === "\r" && next === "\n") i++;
-
-            row.push(cell.trim());
-
-            if (row.some(value => value !== "")) rows.push(row);
-
-            row = [];
-            cell = "";
+        if (character === '"') {
+            if (insideQuotes && line[i + 1] === '"') {
+                value += '"';
+                i++;
+            } else {
+                insideQuotes = !insideQuotes;
+            }
+        } else if (character === "," && !insideQuotes) {
+            result.push(value.trim());
+            value = "";
         } else {
-            cell += char;
+            value += character;
         }
     }
 
-    row.push(cell.trim());
+    result.push(value.trim());
 
-    if (row.some(value => value !== "")) rows.push(row);
+    return result;
+}
 
-    return rows;
+function parseCSV(text) {
+    const lines = text
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .filter(line => line.trim() !== "");
+
+    if (lines.length < 2) {
+        throw new Error("The spreadsheet contains no occupancy records.");
+    }
+
+    const headers = parseCSVLine(lines[0]).map(header =>
+        header.trim().toLowerCase()
+    );
+
+    const requiredHeaders = [
+        "weekday",
+        "time recorded",
+        "floor",
+        "study area",
+        "total seats",
+        "occupied seats"
+    ];
+
+    const indexes = {};
+
+    requiredHeaders.forEach(header => {
+        indexes[header] = headers.indexOf(header);
+
+        if (indexes[header] === -1) {
+            throw new Error(`Missing spreadsheet column: ${header}`);
+        }
+    });
+
+    const records = [];
+    let previousWeekday = "";
+
+    for (let i = 1; i < lines.length; i++) {
+        const columns = parseCSVLine(lines[i]);
+
+        let weekday = columns[indexes["weekday"]] || "";
+
+        if (weekday) {
+            previousWeekday = weekday;
+        } else {
+            weekday = previousWeekday;
+        }
+
+        const timeRecorded = columns[indexes["time recorded"]];
+        const floor = Number(columns[indexes["floor"]]);
+        const studyArea = columns[indexes["study area"]];
+        const totalSeats = Number(columns[indexes["total seats"]]);
+        const occupiedSeats = Number(columns[indexes["occupied seats"]]);
+
+        if (
+            !weekday ||
+            !timeRecorded ||
+            !Number.isInteger(floor) ||
+            !studyArea ||
+            !Number.isFinite(totalSeats) ||
+            !Number.isFinite(occupiedSeats) ||
+            totalSeats < 0 ||
+            occupiedSeats < 0
+        ) {
+            continue;
+        }
+
+        const minutes = timeToMinutes(timeRecorded);
+
+        if (minutes === null) continue;
+
+        records.push({
+            weekday: weekday.trim().toLowerCase(),
+            time: minutes,
+            floor,
+            area: studyArea.trim(),
+            total: totalSeats,
+            occupied: occupiedSeats
+        });
+    }
+
+    return records;
 }
 
 async function fetchOccupancyData() {
-    const response = await fetch(CSV_URL);
+    const response = await fetch(
+        `${CSV_URL}${CSV_URL.includes("?") ? "&" : "?"}refresh=${Date.now()}`
+    );
 
     if (!response.ok) {
-        throw new Error(`CSV request failed: ${response.status}`);
+        throw new Error("Could not retrieve the Google Sheets data.");
     }
 
-    const rows = parseCSV(await response.text());
+    const csvText = await response.text();
 
-    if (rows.length < 2) {
-        throw new Error("No occupancy records were found in the CSV.");
-    }
-
-    const headers = rows[0].map(value =>
-        value.replace(/^\uFEFF/, "").trim().toLowerCase()
-    );
-
-    const column = name => headers.indexOf(name.toLowerCase());
-
-    const weekdayIndex = column("Weekday");
-    const timeIndex = column("Time Recorded");
-    const floorIndex = column("Floor");
-    const areaIndex = column("Study Area");
-    const totalIndex = column("Total Seats");
-    const occupiedIndex = column("Occupied Seats");
-
-    const indexes = [
-        weekdayIndex,
-        timeIndex,
-        floorIndex,
-        areaIndex,
-        totalIndex,
-        occupiedIndex
-    ];
-
-    if (indexes.some(index => index < 0)) {
-        throw new Error(`Unexpected CSV headers: ${headers.join(", ")}`);
-    }
-
-    let lastWeekday = "";
-
-    return rows.slice(1).map(row => {
-        const weekday = row[weekdayIndex]?.trim();
-
-        if (weekday) lastWeekday = weekday;
-
-        return {
-            weekday: lastWeekday,
-            time: normalizeTime(row[timeIndex]?.trim()),
-            floor: Number(row[floorIndex]),
-            name: row[areaIndex]?.trim() || "",
-            total: Number(row[totalIndex]),
-            occupied: Number(row[occupiedIndex])
-        };
-    }).filter(record =>
-        record.weekday &&
-        record.time &&
-        Number.isInteger(record.floor) &&
-        record.name &&
-        Number.isFinite(record.total) &&
-        Number.isFinite(record.occupied) &&
-        record.total > 0 &&
-        record.occupied >= 0 &&
-        record.occupied <= record.total
-    );
+    return parseCSV(csvText);
 }
 
-function buildFloors(records) {
-    const targetTime = timeToMinutes(SELECTED_TIME);
-    const selectedDay = SELECTED_WEEKDAY.trim().toLowerCase();
+function buildFloors(records, currentTime) {
+    const weekday = currentTime.weekday.toLowerCase();
+
+    const todayRecords = records.filter(record =>
+        record.weekday === weekday &&
+        record.time <= currentTime.minutes
+    );
+
     const latestRecords = new Map();
 
-    records.filter(record =>
-        record.weekday.trim().toLowerCase() === selectedDay &&
-        timeToMinutes(record.time) <= targetTime
-    ).forEach(record => {
-        const key = `${record.floor}|${record.name.toLowerCase()}`;
-        const previous = latestRecords.get(key);
+    todayRecords.forEach(record => {
+        const key = `${record.floor}|${record.area}`;
+        const existing = latestRecords.get(key);
 
-        if (
-            !previous ||
-            timeToMinutes(record.time) > timeToMinutes(previous.time)
-        ) {
+        if (!existing || record.time >= existing.time) {
             latestRecords.set(key, record);
         }
     });
 
-    const floorMap = new Map();
+    const groupedFloors = new Map();
 
-    for (const record of latestRecords.values()) {
-        if (!floorMap.has(record.floor)) {
-            floorMap.set(record.floor, {
-                name: `Floor ${record.floor}`,
-                areas: []
+    latestRecords.forEach(record => {
+        if (!groupedFloors.has(record.floor)) {
+            groupedFloors.set(record.floor, {
+                floorNumber: record.floor,
+                areas: [],
+                lastRecorded: record.time
             });
         }
 
-        floorMap.get(record.floor).areas.push({
-            name: record.name,
+        const floor = groupedFloors.get(record.floor);
+
+        floor.areas.push({
+            name: record.area,
             occupied: record.occupied,
             total: record.total,
             time: record.time
         });
-    }
 
-    return [...floorMap.values()].sort((a, b) => a.floorNumber - b.floorNumber);
+        floor.lastRecorded = Math.max(
+            floor.lastRecorded,
+            record.time
+        );
+    });
+
+    return Array.from(groupedFloors.values())
+        .sort((a, b) => a.floorNumber - b.floorNumber)
+        .map(floor => ({
+            ...floor,
+            closed: isFloorClosed(
+                floor.floorNumber,
+                currentTime.minutes
+            ),
+            areas: floor.areas.sort((a, b) =>
+                a.name.localeCompare(b.name)
+            )
+        }));
 }
 
 function updateSummary() {
-    const overallOccupancy = document.getElementById("overall-occupancy");
-    const overallProgress = document.getElementById("overall-progress");
-    const seatSummary = document.getElementById("seat-summary");
+    const openAreas = floors
+        .filter(floor => !floor.closed)
+        .flatMap(floor =>
+            floor.areas
+                .filter(area => area.total > 0)
+                .map(area => ({
+                    ...area,
+                    floorNumber: floor.floorNumber
+                }))
+        );
 
-    const busiestArea = document.getElementById("busiest-area");
-    const busiestFloor = document.getElementById("busiest-floor");
-    const busiestRate = document.getElementById("busiest-rate");
+    const totalSeats = openAreas.reduce(
+        (sum, area) => sum + area.total,
+        0
+    );
 
-    const freestArea = document.getElementById("freest-area");
-    const freestFloor = document.getElementById("freest-floor");
-    const freestRate = document.getElementById("freest-rate");
+    const occupiedSeats = openAreas.reduce(
+        (sum, area) => sum + Math.min(area.occupied, area.total),
+        0
+    );
 
-    let occupiedTotal = 0;
-    let seatTotal = 0;
-    let busiest = null;
-    let freest = null;
-
-    floors.forEach(floor => {
-        if (isFloorClosed(floor.name)) return;
-
-        floor.areas.forEach(area => {
-            const rate = area.occupied / area.total * 100;
-
-            occupiedTotal += area.occupied;
-            seatTotal += area.total;
-
-            const item = { ...area, floor: floor.name, rate };
-
-            if (!busiest || rate > busiest.rate) busiest = item;
-            if (!freest || rate < freest.rate) freest = item;
-        });
-    });
-
-    const percentage = seatTotal
-        ? occupiedTotal / seatTotal * 100
+    const occupancy = totalSeats
+        ? Math.round((occupiedSeats / totalSeats) * 100)
         : 0;
 
-    overallOccupancy.textContent = seatTotal
-        ? `${percentage.toFixed(1)}%`
-        : "—";
+    document.getElementById("overall-occupancy").textContent =
+        `${occupancy}%`;
 
-    overallProgress.style.width = `${percentage}%`;
+    document.getElementById("overall-progress").style.width =
+        `${occupancy}%`;
 
-    seatSummary.textContent = seatTotal
-        ? `${occupiedTotal} of ${seatTotal} seats occupied across open floors`
-        : "No open-floor data available at this time.";
+    document.getElementById("seat-summary").textContent =
+        totalSeats
+            ? `${occupiedSeats} of ${totalSeats} seats occupied across open floors.`
+            : "No occupancy data available for open floors yet.";
 
-    busiestArea.textContent = busiest ? busiest.name : "—";
-    busiestFloor.textContent = busiest
-        ? `${busiest.floor} - ${busiest.occupied} of ${busiest.total} seats`
-        : "No data available";
-    busiestRate.textContent = busiest
-        ? `${busiest.rate.toFixed(1)}% occupied`
-        : "";
+    if (openAreas.length === 0) {
+        document.getElementById("busiest-area").textContent = "—";
+        document.getElementById("busiest-floor").textContent = "";
+        document.getElementById("busiest-rate").textContent = "";
+        document.getElementById("freest-area").textContent = "—";
+        document.getElementById("freest-floor").textContent = "";
+        document.getElementById("freest-rate").textContent = "";
+        return;
+    }
 
-    freestArea.textContent = freest ? freest.name : "—";
-    freestFloor.textContent = freest
-        ? `${freest.floor} - ${freest.occupied} of ${freest.total} seats`
-        : "No data available";
-    freestRate.textContent = freest
-        ? `${freest.rate.toFixed(1)}% occupied`
-        : "";
+    const rankedAreas = openAreas
+        .map(area => ({
+            ...area,
+            rate: area.occupied / area.total
+        }))
+        .sort((a, b) => b.rate - a.rate);
+
+    const busiest = rankedAreas[0];
+    const freest = rankedAreas[rankedAreas.length - 1];
+
+    document.getElementById("busiest-area").textContent =
+        busiest.name;
+
+    document.getElementById("busiest-floor").textContent =
+        `Floor ${busiest.floorNumber}`;
+
+    document.getElementById("busiest-rate").textContent =
+        `${Math.round(busiest.rate * 100)}% occupied`;
+
+    document.getElementById("freest-area").textContent =
+        freest.name;
+
+    document.getElementById("freest-floor").textContent =
+        `Floor ${freest.floorNumber}`;
+
+    document.getElementById("freest-rate").textContent =
+        `${Math.round(freest.rate * 100)}% occupied`;
 }
 
-function renderAreaDetails(floor, area) {
-    const details = document.getElementById("area-details");
+function renderAreaDetails(floor) {
+    const container = document.getElementById("area-details");
 
-    if (isFloorClosed(floor.name)) {
-        const number = Number(floor.name.match(/\d+/)?.[0]);
-
-        details.innerHTML = `
+    if (floor.closed) {
+        container.innerHTML = `
             <div class="closed-card">
-                <div class="closed-message">
-                    <span class="closed-indicator"></span>
-                    <strong>This floor is closed.</strong>
-                </div>
+                <p class="closed-message">This floor is closed.</p>
+                <p class="closed-indicator">Floor ${floor.floorNumber}</p>
                 <p class="closed-description">
-                    This floor closes at ${formatTime(closingTimes[number])}.
-                    Its occupancy is excluded from the overall summary.
+                    Closing time: ${formatTime(
+                        timeToMinutes(FLOOR_CLOSING_TIMES[floor.floorNumber])
+                    )}
                 </p>
             </div>
         `;
-
         return;
     }
 
-    if (!area) {
-        details.innerHTML = "<p>No study-area data available.</p>";
+    if (floor.areas.length === 0) {
+        container.innerHTML = `
+            <div class="closed-card">
+                <p class="closed-message">No data available yet.</p>
+                <p class="closed-description">
+                    No records have been entered for this floor today
+                    at or before the current time.
+                </p>
+            </div>
+        `;
         return;
     }
 
-    const rate = area.occupied / area.total * 100;
-    const available = area.total - area.occupied;
+    const area = floor.areas.find(item => item.name === selectedArea)
+        || floor.areas[0];
 
-    let status = "Available";
+    selectedArea = area.name;
+
+    if (area.total <= 0) {
+        container.innerHTML = `
+            <div class="area-card">
+                <h3>${area.name}</h3>
+                <p class="occupancy-status">Seat capacity unavailable.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const occupied = Math.min(area.occupied, area.total);
+    const available = Math.max(area.total - occupied, 0);
+    const percentage = Math.round((occupied / area.total) * 100);
+
     let color = "green";
+    let status = "Plenty of seats available";
 
-    if (rate >= 80) {
-        status = "Almost full";
+    if (percentage >= 80) {
         color = "red";
-    } else if (rate >= 50) {
-        status = "Getting busy";
+        status = "Almost full";
+    } else if (percentage >= 50) {
         color = "gold";
+        status = "Getting busy";
     }
 
-    details.innerHTML = `
+    container.innerHTML = `
         <div class="area-card">
-            <p class="area-floor">${floor.name}</p>
+            <p class="area-floor">FLOOR ${floor.floorNumber}</p>
             <h3>${area.name}</h3>
 
             <div class="occupancy-heading">
-                <span>Seat occupancy</span>
-                <strong>${rate.toFixed(1)}%</strong>
+                <span>Occupancy</span>
+                <strong>${percentage}%</strong>
             </div>
 
             <div class="progress">
                 <div class="progress-fill ${color}"
-                     style="width: ${rate}%"></div>
+                     style="width: ${percentage}%"></div>
             </div>
 
             <div class="area-stats">
                 <div class="mini-stat">
-                    <span>Total seats</span>
-                    <strong>${area.total}</strong>
-                </div>
-                <div class="mini-stat">
                     <span>Occupied</span>
-                    <strong>${area.occupied}</strong>
+                    <strong>${occupied}</strong>
                 </div>
                 <div class="mini-stat">
                     <span>Available</span>
                     <strong>${available}</strong>
                 </div>
+                <div class="mini-stat">
+                    <span>Total seats</span>
+                    <strong>${area.total}</strong>
+                </div>
             </div>
 
-            <span class="occupancy-status ${color}">${status}</span>
-            <p class="closed-description">
-                Last recorded at ${formatTime(area.time)}.
+            <p class="occupancy-status">${status}</p>
+            <p class="muted">
+                Last recorded: ${formatTime(area.time)}
             </p>
         </div>
     `;
 }
 
-function render() {
+function render(currentTime) {
     const floorTabs = document.getElementById("floor-tabs");
     const areaTabs = document.getElementById("area-tabs");
-    const floorTitle = document.getElementById("selected-floor-title");
-    const areaCount = document.getElementById("area-count");
-    const timestamp = document.getElementById("data-timestamp");
 
-    timestamp.textContent =
-        `Showing ${SELECTED_WEEKDAY} - ${formatTime(SELECTED_TIME)}`;
+    document.getElementById("data-timestamp").textContent =
+        `Today: ${currentTime.weekday}, ${currentTime.time} (Philippine time)`;
 
     floorTabs.innerHTML = "";
-    areaTabs.innerHTML = "";
 
     if (floors.length === 0) {
-        floorTitle.textContent = "No data";
-        areaCount.textContent = "0 study areas";
+        document.getElementById("selected-floor-title").textContent =
+            "No data available";
+
+        document.getElementById("area-count").textContent = "0 study areas";
+        areaTabs.innerHTML = "";
 
         document.getElementById("area-details").innerHTML = `
-            <p>No records found for ${SELECTED_WEEKDAY} at or before
-            ${formatTime(SELECTED_TIME)}. Check the selected day and time.</p>
+            <div class="closed-card">
+                <p class="closed-message">No occupancy records yet.</p>
+                <p class="closed-description">
+                    Check whether today's data has been added to the spreadsheet.
+                </p>
+            </div>
         `;
 
         updateSummary();
         return;
     }
 
-    selectedFloor = Math.min(selectedFloor, floors.length - 1);
-
-    floors.forEach((floor, index) => {
+    floors.forEach(floor => {
         const button = document.createElement("button");
-        const closed = isFloorClosed(floor.name);
+        button.type = "button";
+        button.className = "tab";
 
-        button.className = index === selectedFloor ? "tab active" : "tab";
-        button.textContent = closed ? `${floor.name} - Closed` : floor.name;
+        if (floor.floorNumber === selectedFloor) {
+            button.classList.add("active");
+        }
 
-        button.onclick = () => {
-            selectedFloor = index;
-            selectedArea = 0;
-            render();
-        };
+        button.textContent = `Floor ${floor.floorNumber}${
+            floor.closed ? " · Closed" : ""
+        }`;
+
+        button.addEventListener("click", () => {
+            selectedFloor = floor.floorNumber;
+            selectedArea = null;
+            render(currentTime);
+        });
 
         floorTabs.appendChild(button);
     });
 
-    const floor = floors[selectedFloor];
-    const closed = isFloorClosed(floor.name);
+    let floor = floors.find(
+        item => item.floorNumber === selectedFloor
+    );
 
-    floorTitle.textContent = floor.name;
-    areaCount.textContent = closed
-        ? "Floor closed"
-        : `${floor.areas.length} study area${floor.areas.length === 1 ? "" : "s"}`;
+    if (!floor) {
+        floor = floors[0];
+        selectedFloor = floor.floorNumber;
+    }
 
-    if (!closed) {
-        selectedArea = Math.min(
-            selectedArea,
-            Math.max(0, floor.areas.length - 1)
-        );
+    document.getElementById("selected-floor-title").textContent =
+        `Floor ${floor.floorNumber}`;
 
-        floor.areas.forEach((area, index) => {
+    document.getElementById("area-count").textContent =
+        `${floor.areas.length} study area${floor.areas.length === 1 ? "" : "s"}`;
+
+    areaTabs.innerHTML = "";
+
+    if (!floor.closed) {
+        floor.areas.forEach(area => {
             const button = document.createElement("button");
+            button.type = "button";
+            button.className = "area-tab";
 
-            button.className = index === selectedArea
-                ? "area-tab active"
-                : "area-tab";
+            if (area.name === selectedArea) {
+                button.classList.add("active");
+            }
 
             button.textContent = area.name;
 
-            button.onclick = () => {
-                selectedArea = index;
-                render();
-            };
+            button.addEventListener("click", () => {
+                selectedArea = area.name;
+                render(currentTime);
+            });
 
             areaTabs.appendChild(button);
         });
     }
 
-    renderAreaDetails(floor, closed ? null : floor.areas[selectedArea]);
+    renderAreaDetails(floor);
     updateSummary();
 }
 
 async function loadLiveRARY() {
-    const details = document.getElementById("area-details");
-
-    details.innerHTML = "<p>Loading occupancy data.</p>";
+    const currentTime = getPhilippineDateTime();
 
     try {
         const records = await fetchOccupancyData();
-        floors = buildFloors(records);
-        selectedFloor = 0;
-        selectedArea = 0;
-        render();
-    } catch (error) {
-        console.error("LiveRARY loading error:", error);
 
-        details.innerHTML = `
-            <p>Unable to load occupancy data.</p>
-            <p>${error.message}</p>
+        floors = buildFloors(records, currentTime);
+        lastUpdatedTime = new Date();
+
+        render(currentTime);
+    } catch (error) {
+        console.error("LiveRARY error:", error);
+
+        document.getElementById("data-timestamp").textContent =
+            "Unable to load occupancy data. Please check the CSV link.";
+
+        document.getElementById("area-details").innerHTML = `
+            <div class="closed-card">
+                <p class="closed-message">Unable to load data.</p>
+                <p class="closed-description">
+                    Check your published Google Sheets CSV link and internet connection.
+                </p>
+            </div>
         `;
     }
 }
 
-document.addEventListener("DOMContentLoaded", loadLiveRARY);
+document.addEventListener("DOMContentLoaded", () => {
+    loadLiveRARY();
+
+    setInterval(() => {
+        loadLiveRARY();
+    }, REFRESH_INTERVAL);
+});
